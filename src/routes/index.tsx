@@ -10,6 +10,9 @@ function Storefront() {
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isVideoOpen, setIsVideoOpen] = useState(false)
+  
+  // NEW: State to track which size is selected for which product ID
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const script = document.createElement('script')
@@ -29,15 +32,31 @@ function Storefront() {
     fetchProducts()
   }, [])
 
+  // Handle Size Selection
+  const handleSizeClick = (productId: string, size: string) => {
+    setSelectedSizes(prev => ({
+      ...prev,
+      [productId]: size
+    }))
+  }
+
+  // Handle Payment with Size Validation
   const handlePayment = (product: any) => {
+    const selectedSize = selectedSizes[product.id]
+    
+    if (!selectedSize) {
+      alert("Please select a size before purchasing.")
+      return
+    }
+
     const options = {
       key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SriOoCe0t7Tbi8',
       amount: product.price * 100, 
       currency: 'INR',
       name: 'TheSayyadStudio',
-      description: product.title,
+      description: `${product.title} - Size: ${selectedSize}`,
       handler: function (response: any) {
-        alert(`Payment Successful! \nPayment ID: ${response.razorpay_payment_id}`)
+        alert(`Payment Successful! \nOrder ID: ${response.razorpay_payment_id}\nSize: ${selectedSize}`)
       },
       prefill: { name: 'Studio Client', email: 'client@thesayyadstudio.co.in', contact: '9999999999' },
       theme: { color: '#ffffff' }
@@ -58,16 +77,21 @@ function Storefront() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-white selection:text-black scroll-smooth">
       
-      {/* 🧭 NAVIGATION & LOGO */}
+      {/* 🧭 NAVIGATION & SMART LOGO */}
       <nav className="fixed top-0 w-full z-40 bg-black/90 backdrop-blur-md border-b border-white/10 px-6 py-5 flex justify-between items-center">
-        {/* The Brand Logo */}
-<div className="flex items-center">
-  <img 
-    src="/logo.png" 
-    alt="TheSayyadStudio Logo" 
-    className="h-10 md:h-12 w-auto object-contain"
-  />
-</div>
+        <div className="flex items-center">
+          {/* Smart Logo Fallback: If image fails, hide image and show text span */}
+          <img 
+            src="/logo.png" 
+            alt="TheSayyadStudio Logo" 
+            className="h-10 md:h-12 w-auto object-contain"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+              (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+          <span className="hidden text-2xl font-black tracking-tight text-white">TheSayyadStudio</span>
+        </div>
         
         <div className="hidden md:flex gap-8 text-xs font-bold tracking-[0.2em] text-gray-400 uppercase">
           <a href="#film" className="hover:text-white transition-colors">Films</a>
@@ -80,7 +104,7 @@ function Storefront() {
         </button>
       </nav>
 
-      {/* 🎬 HERO SECTION: ONLY SHE BELIEVED */}
+      {/* 🎬 HERO SECTION */}
       <section id="film" className="relative w-full h-screen flex flex-col items-center justify-center overflow-hidden bg-black pt-16">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-900 via-[#0a0a0a] to-black z-0"></div>
         <div className="relative z-10 text-center px-6 max-w-4xl mx-auto flex flex-col items-center">
@@ -104,21 +128,38 @@ function Storefront() {
         </div>
       </section>
 
-      {/* 🏛️ HERITAGE SECTION */}
+      {/* 🏛️ TRUE HERITAGE SECTION */}
       <section id="heritage" className="w-full bg-[#050505] border-t border-b border-white/5 py-32 px-8 md:px-16">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-16 items-center">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-20 items-center">
           <div className="md:w-1/2">
-            <h2 className="text-sm font-bold uppercase tracking-[0.4em] text-gray-500 mb-6">Our Heritage</h2>
-            <h3 className="text-4xl md:text-5xl font-serif tracking-wide mb-8 leading-tight">Forged in Pune. <br/>Inspired by the World.</h3>
-            <p className="text-gray-400 text-lg font-light leading-relaxed mb-6">
-              TheSayyadStudio is an intersection of cinematic narrative and premium physical design. Operating out of Pune, our visual language is strictly uncompromising. 
+            <h2 className="text-sm font-bold uppercase tracking-[0.4em] text-gray-500 mb-8">Our Heritage</h2>
+            <h3 className="text-5xl md:text-6xl font-serif tracking-wide mb-8 leading-tight">The mark of <br/>a Master.</h3>
+            <p className="text-gray-400 text-lg font-light leading-relaxed mb-12">
+              The name Sayyad translates to 'Master' and embodies precision, focus, and skill. For generations, we have upheld this legacy in every stitch and detail of our clothing.
             </p>
-            <p className="text-gray-400 text-lg font-light leading-relaxed">
-              From the high-altitude isolation of Ladakh, to the vibrant coastal energy of Goa, to the timeless architecture of Europe—every 4K printable garment we engineer is a canvas for global storytelling.
-            </p>
+            
+            <div className="space-y-8">
+              <div className="border-l border-white/10 pl-6">
+                <h4 className="text-white font-bold tracking-[0.2em] uppercase text-sm mb-2">
+                  <span className="text-gray-600 mr-4 font-serif text-lg">01</span>Precision
+                </h4>
+                <p className="text-gray-400 font-light text-sm leading-relaxed">Every cut, every seam — measured and intentional. Nothing left to chance.</p>
+              </div>
+              <div className="border-l border-white/10 pl-6">
+                <h4 className="text-white font-bold tracking-[0.2em] uppercase text-sm mb-2">
+                  <span className="text-gray-600 mr-4 font-serif text-lg">02</span>Focus
+                </h4>
+                <p className="text-gray-400 font-light text-sm leading-relaxed">Small, considered drops. We make less so each piece carries more meaning.</p>
+              </div>
+              <div className="border-l border-white/10 pl-6">
+                <h4 className="text-white font-bold tracking-[0.2em] uppercase text-sm mb-2">
+                  <span className="text-gray-600 mr-4 font-serif text-lg">03</span>Skill
+                </h4>
+                <p className="text-gray-400 font-light text-sm leading-relaxed">Generations of craft, refined into garments built to be lived in and remembered.</p>
+              </div>
+            </div>
           </div>
-          <div className="md:w-1/2 aspect-square bg-gray-900 relative overflow-hidden rounded-sm grayscale hover:grayscale-0 transition-all duration-1000">
-            {/* Heritage Aesthetic Image */}
+          <div className="md:w-1/2 aspect-[4/5] bg-gray-900 relative overflow-hidden rounded-sm grayscale hover:grayscale-0 transition-all duration-1000">
             <img 
               src="https://images.unsplash.com/photo-1542281286-9e0a16bb7366?q=80&w=2070&auto=format&fit=crop" 
               alt="Studio Heritage" 
@@ -150,7 +191,7 @@ function Storefront() {
         </div>
       )}
 
-      {/* 👕 THE CATALOG */}
+      {/* 👕 THE CATALOG WITH CLICKABLE SIZES */}
       <section id="catalog" className="p-8 md:p-16 max-w-7xl mx-auto py-32">
         <div className="flex justify-between items-end mb-16 border-b border-white/10 pb-6">
           <h2 className="text-3xl md:text-5xl font-serif tracking-wide">The Catalog</h2>
@@ -180,12 +221,23 @@ function Storefront() {
               </div>
               <p className="text-gray-500 text-sm leading-relaxed mb-6 font-light">{product.description}</p>
               
+              {/* INTERACTIVE SIZE SELECTOR */}
               <div className="flex flex-wrap gap-2 mb-8">
-                {product.sizes?.map((size: any) => (
-                  <span key={size} className="border border-gray-700 text-gray-300 px-3 py-1 text-xs font-bold uppercase rounded-sm">
-                    {size}
-                  </span>
-                ))}
+                {product.sizes?.map((size: string) => {
+                  const isSelected = selectedSizes[product.id] === size;
+                  return (
+                    <button 
+                      key={size} 
+                      onClick={() => handleSizeClick(product.id, size)}
+                      className={`border px-4 py-1.5 text-xs font-bold uppercase rounded-sm transition-colors duration-200 cursor-pointer
+                        ${isSelected 
+                          ? 'border-white bg-white text-black' 
+                          : 'border-gray-700 text-gray-300 hover:border-gray-400'}`}
+                    >
+                      {size}
+                    </button>
+                  )
+                })}
               </div>
               
               <button 

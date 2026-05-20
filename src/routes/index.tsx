@@ -56,23 +56,29 @@ function Storefront() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-white selection:text-black scroll-smooth">
       
-      {/* NAVIGATION */}
-      <nav className="fixed top-0 w-full z-40 bg-black/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center">
-        <div className="text-xl font-bold tracking-[0.2em] uppercase">TheSayyadStudio</div>
-        <div className="hidden md:flex gap-8 text-sm font-medium tracking-widest text-gray-400 uppercase">
-          <a href="#" className="hover:text-white transition-colors">Films</a>
-          <a href="#" className="hover:text-white transition-colors">4K Apparel</a>
-          <a href="#" className="hover:text-white transition-colors">About</a>
+      {/* 🧭 NAVIGATION & LOGO */}
+      <nav className="fixed top-0 w-full z-40 bg-black/90 backdrop-blur-md border-b border-white/10 px-6 py-5 flex justify-between items-center">
+        {/* The Brand Logo */}
+        <div className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+          {/* Optional: If you have an image logo later, replace the text below with an <img /> tag */}
+          <span>TheSayyadStudio</span>
         </div>
-        <button className="text-sm font-bold tracking-widest uppercase border border-white/20 px-6 py-2 rounded-full hover:bg-white hover:text-black transition-all">
+        
+        <div className="hidden md:flex gap-8 text-xs font-bold tracking-[0.2em] text-gray-400 uppercase">
+          <a href="#film" className="hover:text-white transition-colors">Films</a>
+          <a href="#heritage" className="hover:text-white transition-colors">Heritage</a>
+          <a href="#catalog" className="hover:text-white transition-colors">Catalog</a>
+        </div>
+        
+        <button className="text-xs font-bold tracking-[0.2em] uppercase border border-white/20 px-6 py-2.5 rounded-full hover:bg-white hover:text-black transition-all">
           Cart (0)
         </button>
       </nav>
 
-      {/* HERO SECTION */}
-      <section className="relative w-full h-screen flex flex-col items-center justify-center overflow-hidden bg-black border-b border-gray-900 pt-16">
+      {/* 🎬 HERO SECTION: ONLY SHE BELIEVED */}
+      <section id="film" className="relative w-full h-screen flex flex-col items-center justify-center overflow-hidden bg-black pt-16">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-900 via-[#0a0a0a] to-black z-0"></div>
         <div className="relative z-10 text-center px-6 max-w-4xl mx-auto flex flex-col items-center">
           <span className="text-xs md:text-sm font-bold uppercase tracking-[0.4em] text-gray-500 mb-6">
@@ -95,7 +101,31 @@ function Storefront() {
         </div>
       </section>
 
-      {/* VIDEO MODAL */}
+      {/* 🏛️ HERITAGE SECTION */}
+      <section id="heritage" className="w-full bg-[#050505] border-t border-b border-white/5 py-32 px-8 md:px-16">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-16 items-center">
+          <div className="md:w-1/2">
+            <h2 className="text-sm font-bold uppercase tracking-[0.4em] text-gray-500 mb-6">Our Heritage</h2>
+            <h3 className="text-4xl md:text-5xl font-serif tracking-wide mb-8 leading-tight">Forged in Pune. <br/>Inspired by the World.</h3>
+            <p className="text-gray-400 text-lg font-light leading-relaxed mb-6">
+              TheSayyadStudio is an intersection of cinematic narrative and premium physical design. Operating out of Pune, our visual language is strictly uncompromising. 
+            </p>
+            <p className="text-gray-400 text-lg font-light leading-relaxed">
+              From the high-altitude isolation of Ladakh, to the vibrant coastal energy of Goa, to the timeless architecture of Europe—every 4K printable garment we engineer is a canvas for global storytelling.
+            </p>
+          </div>
+          <div className="md:w-1/2 aspect-square bg-gray-900 relative overflow-hidden rounded-sm grayscale hover:grayscale-0 transition-all duration-1000">
+            {/* Heritage Aesthetic Image */}
+            <img 
+              src="https://images.unsplash.com/photo-1542281286-9e0a16bb7366?q=80&w=2070&auto=format&fit=crop" 
+              alt="Studio Heritage" 
+              className="object-cover w-full h-full opacity-60"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 🎥 VIDEO MODAL */}
       {isVideoOpen && (
         <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 md:p-10">
           <button 
@@ -117,11 +147,11 @@ function Storefront() {
         </div>
       )}
 
-      {/* PRODUCTS SECTION */}
-      <section className="p-8 md:p-16 max-w-7xl mx-auto py-24">
+      {/* 👕 THE CATALOG */}
+      <section id="catalog" className="p-8 md:p-16 max-w-7xl mx-auto py-32">
         <div className="flex justify-between items-end mb-16 border-b border-white/10 pb-6">
-          <h2 className="text-3xl md:text-4xl font-light tracking-wide">The Print Collection</h2>
-          <span className="text-gray-500 uppercase tracking-widest text-xs font-bold">4K Certified</span>
+          <h2 className="text-3xl md:text-5xl font-serif tracking-wide">The Catalog</h2>
+          <span className="text-gray-500 uppercase tracking-[0.3em] text-xs font-bold">4K Certified</span>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
@@ -166,11 +196,11 @@ function Storefront() {
         </div>
       </section>
 
-      {/* FOOTER */}
+      {/* 🏁 FOOTER */}
       <footer className="w-full border-t border-white/10 bg-black pt-16 pb-8 px-8 md:px-16 text-gray-500">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
           <div>
-            <div className="text-white text-xl font-bold tracking-[0.2em] uppercase mb-2">TheSayyadStudio</div>
+            <div className="text-white text-xl font-bold tracking-tight mb-2">TheSayyadStudio</div>
             <p className="font-light text-sm">Cinematic narratives. Premium apparel. Designed in Pune.</p>
           </div>
           <div className="flex gap-6 text-sm font-bold tracking-widest uppercase">

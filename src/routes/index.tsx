@@ -1,180 +1,126 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, MessageCircle, Phone } from "lucide-react";
-import { Layout } from "@/components/Layout";
-import { ProductCard } from "@/components/ProductCard";
-import { products } from "@/data/products";
-import heroTees from "@/assets/brand/hero-tees.jpg";
-import heritage from "@/assets/brand/heritage.jpg";
-import logo from "@/assets/brand/logo.png";
+import { createFileRoute } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "The Sayyad Studio — Elevate Your Everyday Style" },
-      { name: "description", content: "The Sayyad Studio — luxury fashion crafted with precision, focus, and skill. Elevate your everyday style." },
-      { property: "og:title", content: "The Sayyad Studio — Elevate Your Everyday Style" },
-      { property: "og:description", content: "Luxury fashion crafted with precision, focus, and skill." },
-    ],
-  }),
-  component: Index,
-});
+export const Route = createFileRoute('/')({
+  component: Storefront,
+})
 
-function Index() {
-  const featured = products.slice(0, 4);
+function Storefront() {
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+    document.body.appendChild(script)
+
+    async function fetchProducts() {
+      // Added an 'order' clause so the newest shirts appear first
+      const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false })
+      if (!error) setProducts(data || [])
+      setLoading(false)
+    }
+    fetchProducts()
+  }, [])
+
+  const handlePayment = (product: any) => {
+    const options = {
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      amount: product.price * 100, 
+      currency: 'INR',
+      name: 'TheSayyadStudio',
+      description: product.title,
+      handler: function (response: any) {
+        alert(`Payment Successful! \nPayment ID: ${response.razorpay_payment_id}`)
+      },
+      prefill: { name: 'Test Customer', email: 'test@thesayyadstudio.co.in', contact: '9999999999' },
+      theme: { color: '#ffffff' } // Switched to white to contrast the dark UI
+    }
+    const rzp = new (window as any).Razorpay(options)
+    rzp.open()
+  }
+
+  if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white p-10 font-bold tracking-widest uppercase flex items-center justify-center">Loading Studio...</div>
 
   return (
-    <Layout transparentNav>
-      {/* HERO */}
-      <section className="relative min-h-screen bg-bone overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-bone via-bone to-secondary" />
-        <div className="relative mx-auto max-w-7xl px-6 lg:px-10 pt-28 lg:pt-32 pb-16 grid lg:grid-cols-12 gap-10 items-center min-h-screen">
-          <div className="lg:col-span-5 text-center lg:text-left animate-fade-up">
-            <img src={logo} alt="The Sayyad Studio" className="h-28 lg:h-36 w-auto mx-auto lg:mx-0 mb-8" />
-            <p className="eyebrow text-primary">The Sayyad Studio</p>
-            <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl mt-5 leading-[1] tracking-tight text-foreground">
-              Elevate Your<br /><em className="font-light text-primary">Everyday Style.</em>
-            </h1>
-            <p className="mt-6 text-base lg:text-lg text-muted-foreground max-w-md mx-auto lg:mx-0 leading-relaxed">
-              Luxury fashion rooted in heritage. Crafted with precision, focus, and skill — the mark of a Sayyad.
-            </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center lg:justify-start gap-4">
-              <Link
-                to="/collections"
-                className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-7 py-4 text-xs font-semibold uppercase tracking-[0.18em] hover:bg-ink transition-colors rounded-full"
-              >
-                Shop Now for Luxury Fashion <ArrowRight className="h-4 w-4" />
-              </Link>
-              <a
-                href="https://wa.me/917972595126"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 text-foreground text-xs font-medium uppercase tracking-wider hover:gap-3 transition-all"
-              >
-                <MessageCircle className="h-4 w-4" /> WhatsApp Us
-              </a>
-            </div>
-            <a href="tel:7972595126" className="mt-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
-              <Phone className="h-3.5 w-3.5" /> +91 79725 95126
-            </a>
-          </div>
-
-          <div className="lg:col-span-7 relative animate-fade-up">
-            <div className="absolute -inset-4 bg-gradient-to-tr from-primary/10 via-transparent to-accent/20 blur-2xl" />
-            <img
-              src={heroTees}
-              alt="The Sayyad Studio premium tees collection"
-              width={1400}
-              height={900}
-              className="relative w-full h-auto object-cover shadow-2xl"
-            />
-          </div>
+    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-white selection:text-black">
+      
+      {/* 🎬 CINEMATIC HERO SECTION: Only She Believed */}
+      <section className="relative w-full h-[85vh] flex flex-col items-center justify-center overflow-hidden bg-black border-b border-gray-900">
+        {/* Deep background gradient for heroic atmosphere */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-900 via-[#0a0a0a] to-black z-0"></div>
+        
+        <div className="relative z-10 text-center px-6 max-w-4xl mx-auto flex flex-col items-center">
+          <span className="text-xs md:text-sm font-bold uppercase tracking-[0.4em] text-gray-500 mb-6">
+            A TheSayyadStudio Original Short
+          </span>
+          <h1 className="text-5xl md:text-8xl font-serif tracking-wider mb-8 text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500 drop-shadow-2xl">
+            ONLY SHE BELIEVED
+          </h1>
+          <p className="text-gray-400 text-lg md:text-xl mb-12 max-w-2xl font-light leading-relaxed">
+            A 9-minute epic of heroic warriors, Himalayan altitudes, and the solitary courage to face the storm.
+          </p>
+          
+          {/* Custom Play Button */}
+          <button className="group flex items-center gap-4 bg-white/5 hover:bg-white/10 border border-white/20 backdrop-blur-md px-10 py-5 rounded-full transition-all duration-500 hover:scale-105 hover:shadow-[0_0_40px_rgba(255,255,255,0.1)]">
+            <div className="w-5 h-5 bg-white transition-transform duration-300 group-hover:scale-90" style={{ clipPath: 'polygon(0 0, 0 100%, 100% 50%)' }}></div>
+            <span className="font-bold tracking-[0.2em] text-sm uppercase">Watch The Film</span>
+          </button>
         </div>
       </section>
 
-      {/* MARQUEE */}
-      <section className="border-y border-border py-5 overflow-hidden bg-primary text-primary-foreground">
-        <div className="flex whitespace-nowrap animate-marquee gap-12">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <span key={i} className="font-display italic text-2xl lg:text-4xl">
-              Elevate Your Everyday Style <span className="text-accent mx-6">✦</span>
-            </span>
+      {/* 👕 DYNAMIC APPAREL CATALOG */}
+      <section className="p-8 md:p-16 max-w-7xl mx-auto">
+        <div className="flex justify-between items-end mb-12 border-b border-white/10 pb-6">
+          <h2 className="text-3xl md:text-4xl font-light tracking-wide">The Print Collection</h2>
+          <span className="text-gray-500 uppercase tracking-widest text-xs font-bold">4K Certified</span>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+          {products.map((product) => (
+            <div key={product.id} className="group flex flex-col">
+              
+              {/* Dynamic Image Container */}
+              <div className="aspect-[4/5] w-full rounded-sm mb-6 overflow-hidden bg-gray-900 relative">
+                {product.image_url ? (
+                  <img 
+                    src={product.image_url} 
+                    alt={product.title} 
+                    className="object-cover w-full h-full opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 ease-out" 
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-700 font-bold uppercase tracking-widest">Image Missing</div>
+                )}
+              </div>
+              
+              <div className="flex justify-between items-start mb-2">
+                <h2 className="text-xl font-medium tracking-wide pr-4">{product.title}</h2>
+                <p className="text-xl font-bold tracking-wider">₹{product.price}</p>
+              </div>
+              
+              <p className="text-gray-500 text-sm leading-relaxed mb-6 font-light">{product.description}</p>
+              
+              <div className="flex gap-2 mb-8">
+                {product.sizes.map((size: string) => (
+                  <span key={size} className="border border-gray-700 text-gray-300 px-3 py-1 text-xs font-bold uppercase rounded-sm">
+                    {size}
+                  </span>
+                ))}
+              </div>
+              
+              <button 
+                onClick={() => handlePayment(product)}
+                className="mt-auto w-full bg-white text-black py-4 font-bold tracking-[0.2em] uppercase text-sm hover:bg-gray-200 transition-colors"
+              >
+                Purchase Securely
+              </button>
+            </div>
           ))}
         </div>
       </section>
-
-      {/* DISCOVER + HERITAGE */}
-      <section className="mx-auto max-w-7xl px-6 lg:px-10 py-24 lg:py-32">
-        <div className="text-center mb-16">
-          <p className="eyebrow text-accent">Discover</p>
-          <h2 className="font-display text-4xl lg:text-6xl mt-4">
-            Discover <em className="font-light">The Sayyad Studio</em>
-          </h2>
-          <div className="mx-auto mt-6 h-px w-16 bg-foreground/30" />
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          <div>
-            <img src={heritage} alt="Our Heritage" loading="lazy" className="w-full h-auto object-cover" />
-          </div>
-          <div>
-            <p className="eyebrow text-muted-foreground">Our Heritage</p>
-            <h3 className="font-display text-3xl lg:text-5xl mt-4 leading-tight">
-              The mark of a <em className="font-light">Master.</em>
-            </h3>
-            <p className="mt-6 text-muted-foreground leading-relaxed text-base lg:text-lg">
-              The name <strong className="text-foreground font-medium">Sayyad</strong> translates to
-              <em> 'Master'</em> and embodies precision, focus, and skill. For generations, we have upheld
-              this legacy in every stitch and detail of our clothing.
-            </p>
-            <Link to="/about" className="mt-10 inline-flex items-center gap-2 text-sm uppercase tracking-wider text-primary font-semibold border-b border-primary pb-1">
-              Read our story <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* FEATURED PRODUCTS */}
-      <section className="bg-bone py-24 lg:py-32">
-        <div className="mx-auto max-w-7xl px-6 lg:px-10">
-          <div className="text-center mb-14">
-            <p className="eyebrow text-accent">Featured Products</p>
-            <h2 className="font-display text-4xl lg:text-6xl mt-4">
-              Explore our latest styles<br />
-              <em className="font-light">and timeless classics.</em>
-            </h2>
-            <div className="mx-auto mt-6 h-px w-16 bg-foreground/30" />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
-            {featured.map((p) => <ProductCard key={p.id} product={p} />)}
-          </div>
-
-          <div className="text-center mt-16">
-            <Link to="/collections" className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 text-xs font-semibold uppercase tracking-[0.18em] hover:bg-ink transition rounded-full">
-              View All Collections <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* WELCOME */}
-      <section className="mx-auto max-w-3xl px-6 lg:px-10 py-24 lg:py-32 text-center">
-        <p className="eyebrow text-accent">Welcome</p>
-        <h2 className="font-display text-4xl lg:text-6xl mt-4 leading-tight">
-          There's much to <em className="font-light">see here.</em>
-        </h2>
-        <p className="mt-6 text-muted-foreground leading-relaxed max-w-xl mx-auto">
-          So, take your time, look around, and learn all there is to know about us.
-          We hope you enjoy our site and take a moment to drop us a line.
-        </p>
-        <Link to="/about" className="mt-10 inline-flex items-center gap-2 text-sm uppercase tracking-wider text-primary font-semibold border-b border-primary pb-1">
-          Find Out More <ArrowRight className="h-4 w-4" />
-        </Link>
-      </section>
-
-      {/* CONTACT CTA */}
-      <section className="bg-primary text-primary-foreground">
-        <div className="mx-auto max-w-5xl px-6 lg:px-10 py-20 lg:py-28 grid md:grid-cols-2 gap-10 items-center">
-          <div>
-            <p className="eyebrow text-accent">Contact Us</p>
-            <h2 className="font-display text-3xl lg:text-5xl mt-4 leading-tight">
-              Better yet, <em className="font-light">see us in person.</em>
-            </h2>
-            <p className="mt-5 text-primary-foreground/70 max-w-md">
-              We love our customers, so feel free to visit during normal business hours.
-              Open today 09:00 am – 05:00 pm.
-            </p>
-          </div>
-          <div className="flex flex-col gap-4 md:items-end">
-            <a href="https://wa.me/917972595126" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-accent text-accent-foreground px-7 py-4 text-xs font-semibold uppercase tracking-[0.18em] hover:opacity-90 transition rounded-full">
-              <MessageCircle className="h-4 w-4" /> Connect on WhatsApp
-            </a>
-            <a href="tel:7972595126" className="inline-flex items-center gap-2 text-primary-foreground/80 hover:text-accent text-sm">
-              <Phone className="h-4 w-4" /> +91 79725 95126
-            </a>
-          </div>
-        </div>
-      </section>
-    </Layout>
-  );
+      
+    </div>
+  )
 }

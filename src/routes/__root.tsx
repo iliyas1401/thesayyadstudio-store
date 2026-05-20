@@ -78,6 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Travel-inspired premium apparel & cinematic lookbooks." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "TheSayyadStudio" },
+      { name: "twitter:description", content: "Travel-inspired premium apparel & cinematic lookbooks." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/b532ef11-9739-4d9e-a917-44cf29348bf5" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/b532ef11-9739-4d9e-a917-44cf29348bf5" },
     ],
     links: [
       {

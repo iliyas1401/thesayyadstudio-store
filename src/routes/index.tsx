@@ -79,19 +79,17 @@ function Storefront() {
       
       {/* 🧭 NAVIGATION & SMART LOGO */}
       <nav className="fixed top-0 w-full z-40 bg-black/90 backdrop-blur-md border-b border-white/10 px-6 py-5 flex justify-between items-center">
-        <div className="flex items-center">
-          {/* Smart Logo Fallback: If image fails, hide image and show text span */}
-          <img 
-            src="/logo.png" 
-            alt="TheSayyadStudio Logo" 
-            className="h-10 md:h-12 w-auto object-contain"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-              (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-          <span className="hidden text-2xl font-black tracking-tight text-white">TheSayyadStudio</span>
-        </div>
+        <div className="flex items-center gap-3">
+  <img 
+    src="/logo.png" 
+    alt="TheSayyadStudio Logo" 
+    className="h-8 md:h-10 w-auto object-contain"
+    onError={(e) => {
+      (e.target as HTMLImageElement).style.display = 'none';
+    }}
+  />
+  <span className="text-2xl font-black tracking-tight text-white">TheSayyadStudio</span>
+</div>
         
         <div className="hidden md:flex gap-8 text-xs font-bold tracking-[0.2em] text-gray-400 uppercase">
           <a href="#film" className="hover:text-white transition-colors">Films</a>

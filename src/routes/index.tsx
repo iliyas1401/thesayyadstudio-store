@@ -61,10 +61,13 @@ function Storefront() {
       {/* 🧭 NAVIGATION & LOGO */}
       <nav className="fixed top-0 w-full z-40 bg-black/90 backdrop-blur-md border-b border-white/10 px-6 py-5 flex justify-between items-center">
         {/* The Brand Logo */}
-        <div className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-          {/* Optional: If you have an image logo later, replace the text below with an <img /> tag */}
-          <span>TheSayyadStudio</span>
-        </div>
+<div className="flex items-center">
+  <img 
+    src="/logo.png" 
+    alt="TheSayyadStudio Logo" 
+    className="h-10 md:h-12 w-auto object-contain"
+  />
+</div>
         
         <div className="hidden md:flex gap-8 text-xs font-bold tracking-[0.2em] text-gray-400 uppercase">
           <a href="#film" className="hover:text-white transition-colors">Films</a>

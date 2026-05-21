@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ShoppingBag, Menu, X, Phone } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useCart } from "@/store/cart";
+import { useCart } from "@/context/CartContext"; // <-- Upgraded to the Global Brain
 import logo from "@/assets/brand/logo.png";
 
 const links = [
@@ -14,8 +14,9 @@ const links = [
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
-  const items = useCart();
-  const count = items.reduce((s, i) => s + i.qty, 0);
+  
+  // <-- Pull live item count and drawer trigger from context
+  const { cartItemCount, setIsCartOpen } = useCart(); 
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -58,16 +59,23 @@ export function Navbar() {
             <Phone className="h-3.5 w-3.5" />
             +91 79725 95126
           </a>
-          <Link to="/collections" className="relative h-10 w-10 flex items-center justify-center hover:opacity-70 transition" aria-label="Cart">
+          
+          {/* <-- Changed from Link to Button to trigger the global slide-out drawer --> */}
+          <button 
+            onClick={() => setIsCartOpen(true)}
+            className="relative h-10 w-10 flex items-center justify-center hover:opacity-70 transition cursor-pointer" 
+            aria-label="Cart"
+          >
             <ShoppingBag className="h-5 w-5" />
-            {count > 0 && (
+            {cartItemCount > 0 && (
               <span className="absolute top-1 right-1 h-4 min-w-4 px-1 rounded-full bg-accent text-accent-foreground text-[10px] font-semibold flex items-center justify-center">
-                {count}
+                {cartItemCount}
               </span>
             )}
-          </Link>
+          </button>
+
           <button
-            className="lg:hidden h-10 w-10 flex items-center justify-center"
+            className="lg:hidden h-10 w-10 flex items-center justify-center cursor-pointer"
             onClick={() => setOpen((o) => !o)}
             aria-label="Menu"
           >

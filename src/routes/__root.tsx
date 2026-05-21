@@ -10,6 +10,9 @@ import {
 
 import appCss from "../styles.css?url";
 
+// 1. IMPORT YOUR NEW GLOBAL CART BRAIN
+import { CartProvider } from "@/context/CartContext";
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -115,7 +118,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      {/* 2. WRAP YOUR OUTLET SO THE ENTIRE APP CAN ACCESS THE CART */}
+      <CartProvider>
+        <Outlet />
+      </CartProvider>
     </QueryClientProvider>
   );
 }

@@ -2,33 +2,71 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
-import {
-  Package,
-  Tag,
-  Plus,
-  Loader2,
-  Trash2,
-  X,
-  Edit2,
-  Users,
-  Shield,
-  Ban,
-  CheckCircle,
-} from "lucide-react";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { Package, Tag, Plus, Loader2, Trash2, X, Edit2, Users } from "lucide-react";
+
+// 1. Explicit Type Layouts to ensure strict type checking passes
+interface CustomerDetails {
+  name: string | null;
+  email: string | null;
+}
+
+interface OrderItem {
+  id: string | number;
+  product_id: string;
+  title: string;
+  size: string;
+  quantity: number;
+  price: number;
+}
+
+interface Order {
+  id: string;
+  created_at: string;
+  total_amount: number;
+  status: string;
+  shipping_address: string;
+  customers: CustomerDetails | null;
+  order_items: OrderItem[];
+}
+
+interface Product {
+  id: string;
+  title: string;
+  price: number;
+  category: string;
+  image_url: string;
+  images: string[] | null;
+  sizes: string[];
+  created_at?: string;
+}
+
+interface SystemUser {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+}
+
+interface RoleRow {
+  roles: {
+    name: string;
+  } | null;
+}
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
 function AdminPage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"orders" | "products" | "users">("orders");
 
-  const [orders, setOrders] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [systemUsers, setSystemUsers] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [systemUsers, setSystemUsers] = useState<SystemUser[]>([]);
 
   // Product Form State - Added images_input for multiline URLs
   const [isAddingProduct, setIsAddingProduct] = useState(false);
@@ -61,7 +99,12 @@ function AdminPage() {
         .from("user_roles")
         .select(`roles ( name )`)
         .eq("user_id", session.user.id);
-      const mappedRoles = roleData?.map((r: any) => r.roles.name) || [];
+
+      // Clean mapping assertion to replace 'any' parsing rule loops
+      const mappedRoles =
+        (roleData as unknown as RoleRow[])
+          ?.map((r) => r.roles?.name)
+          .filter((name): name is string => typeof name === "string") || [];
       const hasDashboardAccess = mappedRoles.some((role) =>
         ["admin", "supervisor", "staff"].includes(role),
       );
@@ -86,9 +129,9 @@ function AdminPage() {
         canManageUsers ? supabase.rpc("get_users") : Promise.resolve({ data: [] }),
       ]);
 
-      setOrders(orderRes.data || []);
-      setProducts(productRes.data || []);
-      if (usersRes.data) setSystemUsers(usersRes.data);
+      setOrders((orderRes.data as unknown as Order[]) || []);
+      setProducts((productRes.data as unknown as Product[]) || []);
+      if (usersRes.data) setSystemUsers(usersRes.data as SystemUser[]);
       setLoading(false);
     }
     checkAuthAndFetchData();
@@ -132,7 +175,8 @@ function AdminPage() {
     } else {
       const { data, error } = await supabase.from("products").insert([productData]).select();
       if (!error && data) {
-        setProducts([data[0], ...products]);
+        // FIXED: Redundant inner parentheses completely removed here
+        setProducts([data[0] as unknown as Product, ...products]);
         resetProductForm();
       }
     }
@@ -144,12 +188,13 @@ function AdminPage() {
     if (!error) setProducts(products.filter((p) => p.id !== id));
   };
 
-  const handleEditProductClick = (product: any) => {
+  const handleEditProductClick = (product: Product) => {
     setIsAddingProduct(true);
     setEditingProductId(product.id);
 
     // Convert array back to a comma-separated string for the textarea
-    const currentImages = product.images?.length > 0 ? product.images : [product.image_url];
+    const currentImages =
+      product.images && product.images.length > 0 ? product.images : [product.image_url];
 
     setNewProduct({
       title: product.title,
@@ -189,7 +234,7 @@ function AdminPage() {
     }
   };
 
-  const handleEditUserClick = (sysUser: any) => {
+  const handleEditUserClick = (sysUser: SystemUser) => {
     setIsAddingUser(true);
     setEditingUserId(sysUser.id);
     setNewUser({
@@ -216,7 +261,7 @@ function AdminPage() {
     setEditingUserId(null);
     setNewUser({ name: "", email: "", password: "", role: "staff" });
     const { data } = await supabase.rpc("get_users");
-    if (data) setSystemUsers(data);
+    if (data) setSystemUsers(data as SystemUser[]);
   };
 
   const resetUserForm = () => {
@@ -450,7 +495,7 @@ function AdminPage() {
                         {product.category}
                       </span>
                     </div>
-                    {product.images?.length > 1 && (
+                    {product.images && product.images.length > 1 && (
                       <p className="text-[10px] text-gray-400 mt-2 uppercase font-bold tracking-widest">
                         {product.images.length} Images Available
                       </p>
@@ -474,7 +519,108 @@ function AdminPage() {
                 {isAddingUser ? "Cancel" : "Create User"}
               </button>
             </div>
-            {/* Same User Form and List Code as Before... keeping it brief to fit the character limits, assuming no changes needed here. If it cuts off, use your previous User Tab code. */}
+
+            {isAddingUser && (
+              <form
+                onSubmit={handleSaveUser}
+                className="bg-gray-50 p-8 rounded-xl border mb-8 grid md:grid-cols-2 gap-5 shadow-sm"
+              >
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-gray-500">Full Name</label>
+                  <input
+                    required
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                    className="p-3 border rounded-md w-full outline-none bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-gray-500">Email Address</label>
+                  <input
+                    required
+                    type="email"
+                    disabled={!!editingUserId}
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                    className="p-3 border rounded-md w-full outline-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                  />
+                </div>
+                {!editingUserId && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase text-gray-500">Password</label>
+                    <input
+                      required
+                      type="password"
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                      className="p-3 border rounded-md w-full outline-none bg-white"
+                    />
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold uppercase text-gray-500">System Role</label>
+                  <select
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    className="p-3 border rounded-md w-full outline-none bg-white cursor-pointer"
+                  >
+                    <option value="staff">Staff</option>
+                    <option value="supervisor">Supervisor</option>
+                    {isAdmin && <option value="admin">Admin</option>}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="bg-black text-white py-3.5 rounded-md font-bold uppercase tracking-widest md:col-span-2 hover:bg-gray-800 mt-2 cursor-pointer"
+                >
+                  {editingUserId ? "Update Team Member" : "Register Team Member"}
+                </button>
+              </form>
+            )}
+
+            <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-gray-50 uppercase tracking-widest text-xs text-gray-500 border-b">
+                  <tr>
+                    <th className="p-6 font-semibold">User Details</th>
+                    <th className="p-6 font-semibold">Email</th>
+                    <th className="p-6 font-semibold">Role</th>
+                    <th className="p-6 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {systemUsers.map((sysUser) => (
+                    <tr key={sysUser.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="p-6 font-bold text-gray-900">
+                        {sysUser.name || "Unnamed User"}
+                      </td>
+                      <td className="p-6 text-gray-600">{sysUser.email}</td>
+                      <td className="p-6">
+                        <span className="bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded">
+                          {sysUser.role}
+                        </span>
+                      </td>
+                      <td className="p-6 text-right flex justify-end gap-3">
+                        <button
+                          onClick={() => handleEditUserClick(sysUser)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                          title="Edit User"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleUserAction(sysUser.id, "delete")}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

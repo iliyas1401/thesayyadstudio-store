@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowRight, ShoppingBag } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
@@ -7,14 +7,25 @@ import { useCart } from "@/context/CartContext";
 import { ProductGallery } from "@/components/ProductGallery";
 
 import heroTees from "@/assets/brand/hero-tees.jpg";
-import heritage from "@/assets/brand/heritage.jpg";
+
+// 1. Defined a strict Product structure to remove 'any'
+interface Product {
+  id: string | number;
+  title: string;
+  price: number;
+  category: string;
+  image_url: string | null;
+  images: string[] | null;
+  sizes: string[] | null;
+  created_at?: string;
+}
 
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
 function Index() {
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
   const [activeCategory, setActiveCategory] = useState("All");
@@ -22,8 +33,8 @@ function Index() {
   const { addToCart, cartItemCount, setIsCartOpen, setIsCheckoutOpen } = useCart();
 
   useEffect(() => {
-    // GLOBAL DEPENDENCY CHECK: Dynamically inject Razorpay runtime script if missing
-    if (!window.hasOwnProperty("Razorpay")) {
+    // FIXED: Swapped Object.prototype.hasOwnProperty for the type-safe 'in' operator check
+    if (!("Razorpay" in window)) {
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.async = true;
@@ -37,21 +48,23 @@ function Index() {
         .from("products")
         .select("*")
         .order("created_at", { ascending: false });
-      setProducts(data || []);
+      setProducts((data as unknown as Product[]) || []);
       setLoading(false);
     }
     fetchProducts();
   }, []);
 
-  const handleAdd = (p: any) => {
+  // FIXED: Parameter explicitly types 'p' as a clean Product
+  const handleAdd = (p: Product) => {
     const size = selectedSizes[p.id] || (p.sizes ? p.sizes[0] : null);
-    if (!size && p.sizes?.length > 0) return alert("Please select a size");
+    if (!size && p.sizes && p.sizes.length > 0) return alert("Please select a size");
     addToCart(p, size);
   };
 
-  const handleBuy = (p: any) => {
+  // FIXED: Parameter explicitly types 'p' as a clean Product
+  const handleBuy = (p: Product) => {
     const size = selectedSizes[p.id] || (p.sizes ? p.sizes[0] : null);
-    if (!size && p.sizes?.length > 0) return alert("Please select a size");
+    if (!size && p.sizes && p.sizes.length > 0) return alert("Please select a size");
 
     // Add to cart first, then open checkout modal
     addToCart(p, size);
@@ -125,7 +138,7 @@ function Index() {
               {filteredProducts.map((p) => {
                 // Safely handle multiple images vs single image
                 const imageList =
-                  p.images?.length > 0 ? p.images : p.image_url ? [p.image_url] : [];
+                  p.images && p.images.length > 0 ? p.images : p.image_url ? [p.image_url] : [];
 
                 return (
                   <div

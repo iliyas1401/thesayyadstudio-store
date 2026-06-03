@@ -19,7 +19,10 @@ export function Footer() {
               Sign up for our newsletter for early access to new drops and exclusive offers.
             </p>
             <form
-              onSubmit={(e) => { e.preventDefault(); if (email) setSent(true); }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (email) setSent(true);
+              }}
               className="mt-8 flex items-center border-b border-background/30 focus-within:border-accent transition"
             >
               <input
@@ -30,7 +33,11 @@ export function Footer() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="flex-1 bg-transparent py-3 text-background placeholder:text-background/40 outline-none"
               />
-              <button type="submit" className="p-3 hover:translate-x-1 transition-transform text-accent" aria-label="Sign up">
+              <button
+                type="submit"
+                className="p-3 hover:translate-x-1 transition-transform text-accent"
+                aria-label="Sign up"
+              >
                 <ArrowRight className="h-4 w-4" />
               </button>
             </form>
@@ -41,10 +48,26 @@ export function Footer() {
             <div>
               <p className="eyebrow text-background/40 mb-5">Studio</p>
               <ul className="space-y-3 text-sm">
-                <li><a href="/collections" className="hover:text-accent">Collections</a></li>
-                <li><a href="/lookbook" className="hover:text-accent">Lookbook</a></li>
-                <li><a href="/about" className="hover:text-accent">Heritage</a></li>
-                <li><a href="/contact" className="hover:text-accent">Contact</a></li>
+                <li>
+                  <a href="/collections" className="hover:text-accent">
+                    Collections
+                  </a>
+                </li>
+                <li>
+                  <a href="/lookbook" className="hover:text-accent">
+                    Lookbook
+                  </a>
+                </li>
+                <li>
+                  <a href="/about" className="hover:text-accent">
+                    Heritage
+                  </a>
+                </li>
+                <li>
+                  <a href="/contact" className="hover:text-accent">
+                    Contact
+                  </a>
+                </li>
               </ul>
             </div>
             <div>
@@ -58,17 +81,30 @@ export function Footer() {
               <p className="eyebrow text-background/40 mb-5">Reach Us</p>
               <ul className="space-y-3 text-sm">
                 <li>
-                  <a href="tel:7972595126" className="inline-flex items-center gap-2 hover:text-accent">
+                  <a
+                    href="tel:7972595126"
+                    className="inline-flex items-center gap-2 hover:text-accent"
+                  >
                     <Phone className="h-3.5 w-3.5" /> +91 79725 95126
                   </a>
                 </li>
                 <li>
-                  <a href="https://wa.me/917972595126" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-accent">
+                  <a
+                    href="https://wa.me/917972595126"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 hover:text-accent"
+                  >
                     <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
                   </a>
                 </li>
                 <li>
-                  <a href="https://www.instagram.com/thesayyadstudio/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 hover:text-accent">
+                  <a
+                    href="https://www.instagram.com/thesayyadstudio/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 hover:text-accent"
+                  >
                     <Instagram className="h-3.5 w-3.5" /> @thesayyadstudio
                   </a>
                 </li>
@@ -85,9 +121,15 @@ export function Footer() {
             </p>
           </div>
           <div className="flex gap-6 text-xs text-background/40">
-            <a href="#" className="hover:text-accent">Privacy</a>
-            <a href="#" className="hover:text-accent">Shipping</a>
-            <a href="#" className="hover:text-accent">Returns</a>
+            <a href="#" className="hover:text-accent">
+              Privacy
+            </a>
+            <a href="#" className="hover:text-accent">
+              Shipping
+            </a>
+            <a href="#" className="hover:text-accent">
+              Returns
+            </a>
           </div>
         </div>
       </div>

@@ -6,7 +6,11 @@ export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
       { title: "Contact — The Sayyad Studio" },
-      { name: "description", content: "Get in touch with The Sayyad Studio. Call, WhatsApp, or visit us during business hours." },
+      {
+        name: "description",
+        content:
+          "Get in touch with The Sayyad Studio. Call, WhatsApp, or visit us during business hours.",
+      },
       { property: "og:title", content: "Contact — The Sayyad Studio" },
       { property: "og:description", content: "Get in touch with The Sayyad Studio." },
     ],
@@ -29,17 +33,32 @@ function ContactPage() {
 
       <section className="mx-auto max-w-5xl px-6 lg:px-10 pb-24">
         <div className="grid md:grid-cols-2 gap-6">
-          <a href="tel:7972595126" className="group p-8 bg-bone border border-border hover:border-primary transition">
+          <a
+            href="tel:7972595126"
+            className="group p-8 bg-bone border border-border hover:border-primary transition"
+          >
             <Phone className="h-6 w-6 text-primary" />
             <p className="eyebrow mt-6 text-muted-foreground">Call</p>
             <p className="font-display text-2xl mt-2 group-hover:text-primary">+91 79725 95126</p>
           </a>
-          <a href="https://wa.me/917972595126" target="_blank" rel="noreferrer" className="group p-8 bg-bone border border-border hover:border-primary transition">
+          <a
+            href="https://wa.me/917972595126"
+            target="_blank"
+            rel="noreferrer"
+            className="group p-8 bg-bone border border-border hover:border-primary transition"
+          >
             <MessageCircle className="h-6 w-6 text-primary" />
             <p className="eyebrow mt-6 text-muted-foreground">WhatsApp</p>
-            <p className="font-display text-2xl mt-2 group-hover:text-primary">Message us instantly</p>
+            <p className="font-display text-2xl mt-2 group-hover:text-primary">
+              Message us instantly
+            </p>
           </a>
-          <a href="https://www.instagram.com/thesayyadstudio/" target="_blank" rel="noreferrer" className="group p-8 bg-bone border border-border hover:border-primary transition">
+          <a
+            href="https://www.instagram.com/thesayyadstudio/"
+            target="_blank"
+            rel="noreferrer"
+            className="group p-8 bg-bone border border-border hover:border-primary transition"
+          >
             <Instagram className="h-6 w-6 text-primary" />
             <p className="eyebrow mt-6 text-muted-foreground">Instagram</p>
             <p className="font-display text-2xl mt-2 group-hover:text-primary">@thesayyadstudio</p>

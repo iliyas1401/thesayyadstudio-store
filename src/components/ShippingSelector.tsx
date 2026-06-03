@@ -2,7 +2,13 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { MapPin } from "lucide-react";
 
-export function ShippingSelector({ userId, onSelect }: { userId: string, onSelect: (addr: any) => void }) {
+export function ShippingSelector({
+  userId,
+  onSelect,
+}: {
+  userId: string;
+  onSelect: (addr: any) => void;
+}) {
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddrId, setSelectedAddrId] = useState<string>("");
 
@@ -48,18 +54,20 @@ export function ShippingSelector({ userId, onSelect }: { userId: string, onSelec
         ))}
       </select>
 
-      {addresses.find(a => a.id === selectedAddrId) && (
+      {addresses.find((a) => a.id === selectedAddrId) && (
         <div className="p-4 border-l-4 border-black bg-gray-50 text-sm">
-          <p className="font-bold">
-            {addresses.find(a => a.id === selectedAddrId)?.label}
+          <p className="font-bold">{addresses.find((a) => a.id === selectedAddrId)?.label}</p>
+          <p className="text-gray-600">
+            {addresses.find((a) => a.id === selectedAddrId)?.address},{" "}
+            {addresses.find((a) => a.id === selectedAddrId)?.city}
           </p>
           <p className="text-gray-600">
-            {addresses.find(a => a.id === selectedAddrId)?.address}, {addresses.find(a => a.id === selectedAddrId)?.city}
+            {addresses.find((a) => a.id === selectedAddrId)?.state} -{" "}
+            {addresses.find((a) => a.id === selectedAddrId)?.pincode}
           </p>
-          <p className="text-gray-600">
-            {addresses.find(a => a.id === selectedAddrId)?.state} - {addresses.find(a => a.id === selectedAddrId)?.pincode}
+          <p className="mt-2 font-semibold">
+            Ph: {addresses.find((a) => a.id === selectedAddrId)?.phone}
           </p>
-          <p className="mt-2 font-semibold">Ph: {addresses.find(a => a.id === selectedAddrId)?.phone}</p>
         </div>
       )}
     </div>

@@ -5,7 +5,9 @@ type CartItem = { product: Product; qty: number };
 let items: CartItem[] = [];
 const listeners = new Set<() => void>();
 
-function emit() { listeners.forEach((l) => l()); }
+function emit() {
+  listeners.forEach((l) => l());
+}
 
 export const cart = {
   add(product: Product) {
@@ -18,10 +20,19 @@ export const cart = {
     items = items.filter((i) => i.product.id !== id);
     emit();
   },
-  get() { return items; },
-  count() { return items.reduce((s, i) => s + i.qty, 0); },
-  total() { return items.reduce((s, i) => s + i.qty * i.product.price, 0); },
-  subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); },
+  get() {
+    return items;
+  },
+  count() {
+    return items.reduce((s, i) => s + i.qty, 0);
+  },
+  total() {
+    return items.reduce((s, i) => s + i.qty * i.product.price, 0);
+  },
+  subscribe(l: () => void) {
+    listeners.add(l);
+    return () => listeners.delete(l);
+  },
 };
 
 export function useCart() {

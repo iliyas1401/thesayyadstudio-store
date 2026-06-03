@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/context/CartContext";
+import { ProductGallery } from "@/components/ProductGallery";
 
 import heroTees from "@/assets/brand/hero-tees.jpg";
 import heritage from "@/assets/brand/heritage.jpg";
@@ -21,6 +22,16 @@ function Index() {
   const { addToCart, cartItemCount, setIsCartOpen, setIsCheckoutOpen } = useCart();
 
   useEffect(() => {
+    // GLOBAL DEPENDENCY CHECK: Dynamically inject Razorpay runtime script if missing
+    if (!window.hasOwnProperty("Razorpay")) {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => console.log("Razorpay SDK initialized successfully.");
+      script.onerror = () => console.error("Failed to load Razorpay payment SDK.");
+      document.head.appendChild(script);
+    }
+
     async function fetchProducts() {
       const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false });
       setProducts(data || []);
@@ -79,21 +90,36 @@ function Index() {
           </div>
           {loading ? <div>Loading...</div> : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {filteredProducts.map((p) => (
-                <div key={p.id} className="bg-white p-5 rounded-xl shadow-sm border border-border/50">
-                  <img src={p.image_url} alt={p.title} className="w-full aspect-[4/5] object-cover rounded-lg mb-4" />
-                  <h3 className="font-display text-lg">{p.title}</h3>
-                  <div className="flex flex-wrap gap-2 my-4">
-                    {p.sizes?.map((s: string) => (
-                      <button key={s} onClick={() => setSelectedSizes(prev => ({ ...prev, [p.id]: s }))} className={`border px-2 py-1 text-[10px] ${selectedSizes[p.id] === s ? 'bg-black text-white' : ''}`}>{s}</button>
-                    ))}
+              {filteredProducts.map((p) => {
+                
+                // Safely handle multiple images vs single image
+                const imageList = p.images?.length > 0 ? p.images : (p.image_url ? [p.image_url] : []);
+
+                return (
+                  <div key={p.id} className="bg-white p-5 rounded-xl shadow-sm border border-border/50 group">
+                    
+                    {/* Product Gallery replaces the standard <img> tag */}
+                    <div className="mb-4">
+                      <ProductGallery images={imageList} alt={p.title} />
+                    </div>
+                    
+                    <h3 className="font-display text-lg">{p.title}</h3>
+                    
+                    {/* Price Explicitly Rendered */}
+                    <p className="text-sm font-medium mt-1">₹{p.price}</p>
+                    
+                    <div className="flex flex-wrap gap-2 my-4">
+                      {p.sizes?.map((s: string) => (
+                        <button key={s} onClick={() => setSelectedSizes(prev => ({ ...prev, [p.id]: s }))} className={`border px-2 py-1 text-[10px] transition-colors cursor-pointer ${selectedSizes[p.id] === s ? 'bg-black text-white' : 'hover:bg-gray-100'}`}>{s}</button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => handleAdd(p)} className="border py-2 text-[10px] font-bold uppercase cursor-pointer hover:bg-gray-50 transition-colors">Add</button>
+                      <button onClick={() => handleBuy(p)} className="bg-primary text-white py-2 text-[10px] font-bold uppercase cursor-pointer hover:opacity-90 transition-opacity">Buy Now</button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => handleAdd(p)} className="border py-2 text-[10px] font-bold uppercase cursor-pointer">Add</button>
-                    <button onClick={() => handleBuy(p)} className="bg-primary text-white py-2 text-[10px] font-bold uppercase cursor-pointer">Buy Now</button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

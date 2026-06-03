@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { useCart } from "@/context/CartContext";
 import { supabase } from "@/lib/supabase";
+import { ProductGallery } from "@/components/ProductGallery";
 
 export const Route = createFileRoute("/collections")({
   component: CollectionsPage,
@@ -38,28 +39,53 @@ function CollectionsPage() {
     setIsCheckoutOpen(true);
   };
 
-  const filtered = filter === "ALL" ? products : products.filter((p) => p.collection === filter);
+  const filtered = filter === "ALL" ? products : products.filter((p) => p.category === filter || p.collection === filter);
 
   return (
     <Layout>
       <div className="mx-auto max-w-7xl px-6 py-20">
         <h1 className="font-display text-7xl mb-10">Collections</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {filtered.map((p) => (
-            <div key={p.id} className="bg-white p-4 rounded-xl shadow-sm border border-border/50">
-              <img src={p.image_url} alt={p.title} className="w-full aspect-[4/5] object-cover rounded-lg mb-4" />
-              <h3 className="font-display text-lg">{p.title}</h3>
-              <div className="flex flex-wrap gap-2 my-4">
-                {p.sizes?.map((s: string) => (
-                  <button key={s} onClick={() => setSelectedSizes(prev => ({ ...prev, [p.id]: s }))} className={`border px-2 py-1 text-[10px] ${selectedSizes[p.id] === s ? 'bg-black text-white' : ''}`}>{s}</button>
-                ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12">
+          {filtered.map((p) => {
+            // Safely handle legacy products that might only have an image_url
+            const imageList = p.images?.length > 0 ? p.images : (p.image_url ? [p.image_url] : []);
+            
+            return (
+              <div key={p.id} className="bg-white group">
+                
+                {/* THE NEW GALLERY COMPONENT */}
+                <div className="mb-4">
+                  <ProductGallery images={imageList} alt={p.title} />
+                </div>
+
+                <div className="pt-2">
+                  <h3 className="font-display text-lg tracking-wide">{p.title}</h3>
+                  <p className="text-sm font-medium mt-1">₹{p.price}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 my-4">
+                  {p.sizes?.map((s: string) => (
+                    <button 
+                      key={s} 
+                      onClick={() => setSelectedSizes(prev => ({ ...prev, [p.id]: s }))} 
+                      className={`border px-3 py-1.5 text-xs uppercase tracking-widest cursor-pointer transition-colors ${selectedSizes[p.id] === s ? 'bg-black text-white border-black' : 'hover:border-black text-gray-500'}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <button onClick={() => handleAdd(p)} className="border border-black py-3 text-[10px] font-bold uppercase tracking-widest cursor-pointer hover:bg-black hover:text-white transition-colors">
+                    Add to Cart
+                  </button>
+                  <button onClick={() => handleBuy(p)} className="bg-black text-white py-3 text-[10px] font-bold uppercase tracking-widest cursor-pointer hover:bg-gray-900 transition-colors">
+                    Buy Now
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => handleAdd(p)} className="border py-2 text-[10px] font-bold uppercase cursor-pointer">Add</button>
-                <button onClick={() => handleBuy(p)} className="bg-primary text-white py-2 text-[10px] font-bold uppercase cursor-pointer">Buy Now</button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </Layout>

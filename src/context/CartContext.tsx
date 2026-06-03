@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { X, Plus, Minus } from "lucide-react";
+import { X, Plus, Minus, MapPin, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 const CartContext = createContext<any>(null);
@@ -8,9 +8,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<any[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  
+  // Shipping State
   const [shippingInfo, setShippingInfo] = useState({ address: "", city: "", pincode: "", phone: "" });
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [selectedAddrId, setSelectedAddrId] = useState<string>("new");
 
-  // 1. Load Razorpay and Fetch Saved Address
+  // Loading & Error States
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  // 1. Load Razorpay and Fetch Saved Addresses
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -18,22 +26,48 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     document.body.appendChild(script);
 
     if (isCheckoutOpen) {
-      async function loadSavedAddress() {
+      async function loadSavedAddresses() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const { data } = await supabase
             .from('shipping_profiles')
             .select('*')
             .eq('user_id', session.user.id)
-            .eq('is_default', true)
-            .maybeSingle();
+            .order('is_default', { ascending: false }); 
           
-          if (data) setShippingInfo(data);
+          if (data && data.length > 0) {
+            setSavedAddresses(data);
+            setSelectedAddrId(data[0].id);
+            setShippingInfo({
+              address: data[0].address,
+              city: data[0].city,
+              pincode: data[0].pincode,
+              phone: data[0].phone
+            });
+          } else {
+            setSelectedAddrId("new");
+          }
         }
       }
-      loadSavedAddress();
+      loadSavedAddresses();
+      // Clear any previous errors when opening checkout
+      setPaymentError(null);
     }
   }, [isCheckoutOpen]);
+
+  const handleAddressSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setSelectedAddrId(val);
+    setPaymentError(null); // Clear errors on interaction
+    if (val === "new") {
+      setShippingInfo({ address: "", city: "", pincode: "", phone: "" });
+    } else {
+      const addr = savedAddresses.find(a => a.id === val);
+      if (addr) {
+        setShippingInfo({ address: addr.address, city: addr.city, pincode: addr.pincode, phone: addr.phone });
+      }
+    }
+  };
 
   const addToCart = (product: any, selectedSize: string) => {
     setCart(prevCart => {
@@ -63,11 +97,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // 2. Core Payment Logic
   const processPayment = async (amount: number, description: string, itemsPurchased: any[]) => {
+    setPaymentError(null); // Reset errors before new attempt
     const { data: { session } } = await supabase.auth.getSession();
     const activeUserId = session?.user?.id || null;
 
+    // SECURE ENVIRONMENT KEY HANDLING
+    // Vite uses import.meta.env.DEV to check if it's running on localhost
+    const isDev = import.meta.env.DEV; 
+    const RAZORPAY_KEY = isDev 
+      ? (import.meta.env.VITE_RAZORPAY_TEST_KEY || "rzp_test_SriOoCe0t7Tbi8") // Fallback test key if env is missing
+      : import.meta.env.VITE_RAZORPAY_LIVE_KEY;
+
+    if (!RAZORPAY_KEY) {
+      alert("Payment gateway configuration error. Please contact support.");
+      return;
+    }
+
     const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_SriOoCe0t7Tbi8",
+      key: RAZORPAY_KEY,
       amount: amount * 100, 
       currency: "INR",
       name: "The Sayyad Studio",
@@ -79,28 +126,36 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       },
       theme: { color: "#000000" },
       
+      modal: {
+        ondismiss: function() {
+          // User closed the popup manually
+          setIsProcessing(false);
+        }
+      },
+      
       handler: async function (response: any) {
+        setIsProcessing(true);
+        
         try {
-          // If logged in, save the address for next time
-          if (activeUserId) {
+          if (activeUserId && selectedAddrId === "new") {
              await supabase.from('shipping_profiles').insert([{
                user_id: activeUserId,
+               label: "Address " + (savedAddresses.length + 1),
                address: shippingInfo.address,
                city: shippingInfo.city,
                pincode: shippingInfo.pincode,
                phone: shippingInfo.phone,
-               is_default: true
+               is_default: savedAddresses.length === 0
              }]);
           }
 
-          // Insert Customer
-          const { data: customerData } = await supabase
+          const { data: customerData, error: custErr } = await supabase
             .from('customers')
             .insert([{ name: "Client", email: session?.user?.email || "guest@client.com", phone: shippingInfo.phone, user_id: activeUserId }])
             .select().single();
+          if (custErr) throw custErr;
 
-          // Insert Order
-          const { data: orderData } = await supabase
+          const { data: orderData, error: ordErr } = await supabase
             .from('orders')
             .insert([{
               customer_id: customerData.id,
@@ -111,8 +166,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               shipping_address: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.pincode}`
             }])
             .select().single();
+          if (ordErr) throw ordErr;
 
-          // Insert Items
           const orderItems = itemsPurchased.map(item => ({
             order_id: orderData.id,
             product_id: item.product.id,
@@ -122,15 +177,36 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             price_at_time: item.product.price
           }));
 
-          await supabase.from('order_items').insert(orderItems);
+          const { error: itemErr } = await supabase.from('order_items').insert(orderItems);
+          if (itemErr) throw itemErr;
 
-          alert(`Order Placed Successfully! ID: ${orderData.id}`);
+          // Success Cleanup
+          setIsProcessing(false);
           setCart([]); 
           setIsCheckoutOpen(false);
-        } catch (e) { console.error(e); alert("Error saving order."); }
+          alert(`Order Placed Successfully! Your Order ID is: ${orderData.id.slice(0,8)}`);
+
+        } catch (e: any) { 
+          setIsProcessing(false);
+          console.error("Database Write Error:", e);
+          // Only use alert for catastrophic DB failures after money is taken
+          alert(`Payment Received but Order Creation failed. Please contact support with Payment ID: ${response.razorpay_payment_id}`); 
+        }
       }
     };
-    new (window as any).Razorpay(options).open();
+    
+    const rzp = new (window as any).Razorpay(options);
+    
+    // Handling Razorpay's Failure Event
+    rzp.on('payment.failed', function (response: any) {
+      setIsProcessing(false);
+      // Extract the human-readable description provided by Razorpay
+      const errorMsg = response.error.description || "The payment could not be completed.";
+      // Set the error state to display it natively in the UI
+      setPaymentError(errorMsg);
+    });
+
+    rzp.open();
   };
 
   return (
@@ -140,23 +216,78 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       {/* CHECKOUT MODAL */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl">
-            <h2 className="text-2xl font-display mb-6">Shipping Details</h2>
-            <div className="space-y-4">
-              <input type="text" placeholder="Full Address" value={shippingInfo.address} className="w-full p-3 border rounded" onChange={(e) => setShippingInfo({...shippingInfo, address: e.target.value})} />
-              <div className="grid grid-cols-2 gap-4">
-                <input type="text" placeholder="City" value={shippingInfo.city} className="p-3 border rounded" onChange={(e) => setShippingInfo({...shippingInfo, city: e.target.value})} />
-                <input type="text" placeholder="Pincode" value={shippingInfo.pincode} className="p-3 border rounded" onChange={(e) => setShippingInfo({...shippingInfo, pincode: e.target.value})} />
+          <div className="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden">
+            
+            {/* PROCESSING OVERLAY */}
+            {isProcessing && (
+              <div className="absolute inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+                <Loader2 className="w-10 h-10 animate-spin text-black mb-4" />
+                <h3 className="text-xl font-bold font-display">Confirming Payment...</h3>
+                <p className="text-sm text-gray-500 mt-2 text-center px-6">Please do not close this window while we secure your order.</p>
               </div>
-              <input type="tel" placeholder="Phone Number" value={shippingInfo.phone} className="w-full p-3 border rounded" onChange={(e) => setShippingInfo({...shippingInfo, phone: e.target.value})} />
+            )}
+
+            <h2 className="text-2xl font-display mb-6 flex items-center gap-2">
+              <MapPin className="w-6 h-6" /> Shipping Details
+            </h2>
+
+            {/* FAILURE ALERT MESSAGE */}
+            {paymentError && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-bold text-red-800 uppercase">Payment Failed</h4>
+                  <p className="text-sm text-red-600 mt-1">{paymentError}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {savedAddresses.length > 0 && (
+                <div className="mb-4">
+                  <label className="text-xs font-bold uppercase text-muted-foreground block mb-2">Select Address</label>
+                  <select 
+                    value={selectedAddrId} 
+                    onChange={handleAddressSelect}
+                    disabled={isProcessing}
+                    className="w-full p-3 border rounded bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-black disabled:opacity-50"
+                  >
+                    {savedAddresses.map(a => (
+                      <option key={a.id} value={a.id}>
+                        {a.label || 'Saved'} - {a.address}, {a.city}
+                      </option>
+                    ))}
+                    <option value="new">+ Enter New Address</option>
+                  </select>
+                </div>
+              )}
+
+              {selectedAddrId !== "new" ? (
+                <div className="p-4 border rounded bg-gray-50 text-sm space-y-1">
+                  <p className="font-bold">{shippingInfo.address}</p>
+                  <p>{shippingInfo.city} - {shippingInfo.pincode}</p>
+                  <p className="font-semibold mt-2">Ph: {shippingInfo.phone}</p>
+                </div>
+              ) : (
+                <>
+                  <input disabled={isProcessing} type="text" placeholder="Full Address" value={shippingInfo.address} className="w-full p-3 border rounded disabled:opacity-50" onChange={(e) => {setShippingInfo({...shippingInfo, address: e.target.value}); setPaymentError(null);}} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <input disabled={isProcessing} type="text" placeholder="City" value={shippingInfo.city} className="p-3 border rounded disabled:opacity-50" onChange={(e) => {setShippingInfo({...shippingInfo, city: e.target.value}); setPaymentError(null);}} />
+                    <input disabled={isProcessing} type="text" placeholder="Pincode" value={shippingInfo.pincode} className="p-3 border rounded disabled:opacity-50" onChange={(e) => {setShippingInfo({...shippingInfo, pincode: e.target.value}); setPaymentError(null);}} />
+                  </div>
+                  <input disabled={isProcessing} type="tel" placeholder="Phone Number" value={shippingInfo.phone} className="w-full p-3 border rounded disabled:opacity-50" onChange={(e) => {setShippingInfo({...shippingInfo, phone: e.target.value}); setPaymentError(null);}} />
+                </>
+              )}
             </div>
+
             <div className="mt-8 flex gap-3">
-              <button onClick={() => setIsCheckoutOpen(false)} className="flex-1 py-3 border rounded font-bold cursor-pointer">Cancel</button>
+              <button disabled={isProcessing} onClick={() => setIsCheckoutOpen(false)} className="flex-1 py-3 border rounded font-bold cursor-pointer hover:bg-gray-50 disabled:opacity-50">Cancel</button>
               <button 
-                onClick={() => { if(shippingInfo.address) processPayment(cartTotal, "Studio Order", cart); }} 
-                className="flex-1 py-3 bg-black text-white rounded font-bold cursor-pointer"
+                disabled={isProcessing}
+                onClick={() => { if(shippingInfo.address && shippingInfo.phone) processPayment(cartTotal, "Studio Order", cart); else alert("Please fill all shipping details."); }} 
+                className="flex-1 py-3 bg-black text-white rounded font-bold cursor-pointer hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center"
               >
-                Pay ₹{cartTotal}
+                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : (paymentError ? "Retry Payment" : `Pay ₹${cartTotal}`)}
               </button>
             </div>
           </div>

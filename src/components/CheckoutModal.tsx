@@ -3,7 +3,17 @@ import { supabase } from "@/lib/supabase";
 import { useState } from "react";
 import { X, Loader2, CreditCard } from "lucide-react";
 
-// 1. Explicitly type out the Razorpay interface objects to pass the linter
+// 1. Define what a Cart Item looks like to satisfy the compiler
+interface CartItem {
+  id: string | number;
+  title?: string;
+  name?: string;
+  size?: string;
+  quantity?: number;
+  price: number;
+}
+
+// 2. Explicit structures for Razorpay configurations
 interface RazorpayResponse {
   razorpay_payment_id: string;
   razorpay_order_id?: string;
@@ -56,8 +66,22 @@ export function CheckoutModal() {
 
   if (!isCheckoutOpen) return null;
 
-  const handlePayment = async (e: React.FormEvent) => {
+  // FIXED: Updated signature typing to eliminate modern compiler deprecation warnings
+  const handlePayment = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    console.log("🔥 THE FORM WAS TRIGGERED SUCCESSFULLY!");
+
+    // Explicit runtime field validation prevents silent native browser failures
+    if (
+      !shippingDetails.name ||
+      !shippingDetails.email ||
+      !shippingDetails.phone ||
+      !shippingDetails.address
+    ) {
+      alert("Please fill out all shipping fields before continuing.");
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
@@ -66,7 +90,7 @@ export function CheckoutModal() {
       } = await supabase.auth.getSession();
       const userId = session?.user?.id || null;
 
-      // 2. Generate Razorpay Order ID via Supabase Edge Function securely
+      // Generate Razorpay Order ID via Supabase Edge Function securely
       const { data: razorpayOrder, error: funcError } = await supabase.functions.invoke(
         "create-razorpay-order",
         {
@@ -80,7 +104,7 @@ export function CheckoutModal() {
         );
       }
 
-      // 3. Insert the pending order row into Supabase to generate the unique tracking ID
+      // Insert the pending order row into Supabase
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert([
@@ -89,10 +113,10 @@ export function CheckoutModal() {
             total_amount: cartTotal,
             status: "Paid",
             shipping_address: `${shippingDetails.name}, ${shippingDetails.address}, Phone: ${shippingDetails.phone}`,
-            order_items: cartItems.map((item) => ({
-              product_id: item.id,
-              title: item.title || item.name,
-              size: item.size,
+            order_items: (cartItems as CartItem[]).map((item: CartItem) => ({
+              product_id: String(item.id),
+              title: item.title || item.name || "Premium Garment",
+              size: item.size || "Standard",
               quantity: item.quantity || 1,
               price: item.price,
             })),
@@ -105,7 +129,7 @@ export function CheckoutModal() {
         throw new Error(orderError?.message || "Failed to register order in database.");
       }
 
-      // 4. Configure Razorpay Options with secure Env Key and verified Order ID
+      // Configure Razorpay Options
       const options: RazorpayOptions = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: cartTotal * 100,
@@ -139,7 +163,6 @@ export function CheckoutModal() {
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (err: unknown) {
-      // 5. Use type-safe error catching instead of err: any
       const errorMessage = err instanceof Error ? err.message : "Something went wrong.";
       alert(errorMessage);
       setIsProcessing(false);
@@ -161,13 +184,13 @@ export function CheckoutModal() {
           Total Order Value: <span className="font-bold text-foreground ml-1">₹{cartTotal}</span>
         </p>
 
-        <form onSubmit={handlePayment} className="space-y-4">
+        {/* FIXED: Added 'noValidate' to let our custom runtime handler manage requirements seamlessly */}
+        <form onSubmit={handlePayment} noValidate className="space-y-4">
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">
               Full Name
             </label>
             <input
-              required
               type="text"
               placeholder="Your Name"
               value={shippingDetails.name}
@@ -182,7 +205,6 @@ export function CheckoutModal() {
                 Email Address
               </label>
               <input
-                required
                 type="email"
                 placeholder="name@example.com"
                 value={shippingDetails.email}
@@ -195,7 +217,6 @@ export function CheckoutModal() {
                 Phone Number
               </label>
               <input
-                required
                 type="tel"
                 placeholder="+91 XXXXX XXXXX"
                 value={shippingDetails.phone}
@@ -210,7 +231,6 @@ export function CheckoutModal() {
               Shipping Address
             </label>
             <textarea
-              required
               rows={3}
               placeholder="Complete Shipping Address"
               value={shippingDetails.address}

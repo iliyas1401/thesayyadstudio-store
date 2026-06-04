@@ -294,10 +294,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
           if (ordErr) throw new Error(`Order Error: ${ordErr.message}`);
 
+          // FIXED: Reverted to product_name to perfectly match your Supabase schema
           const orderItems = itemsPurchased.map((item) => ({
             order_id: orderData.id,
             product_id: item.product.id,
-            product_title: item.product.title,
+            product_name: item.product.title, 
             size: item.size,
             quantity: item.quantity,
             price_at_time: item.product.price,
@@ -321,7 +322,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       },
     };
 
-    // FIXED: Safely calling the global window instance without 'any' type casting
     const rzp = new window.Razorpay(options);
 
     rzp.on("payment.failed", function (response: RazorpayErrorResponse) {

@@ -84,6 +84,7 @@ interface CartContextType {
   setIsCartOpen: (isOpen: boolean) => void;
   cartItemCount: number;
   setIsCheckoutOpen: (isOpen: boolean) => void;
+  isCheckoutOpen: boolean;
   cartTotal: number;
   clearCart: () => void;
 }
@@ -211,7 +212,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } = await supabase.auth.getSession();
     const activeUserId = session?.user?.id || null;
 
-    // FIXED: Compressed intermediate reference cuts long line chains completely
     const env = import.meta.env;
     const RAZORPAY_KEY =
       env.VITE_RAZORPAY_KEY_ID ||
@@ -273,9 +273,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             ])
             .select()
             .single();
-          if (custErr) throw custErr;
+          if (custErr) throw new Error(`Customer Error: ${custErr.message}`);
 
           const fullAddress = `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.pincode}`;
+
           const { data: orderData, error: ordErr } = await supabase
             .from("orders")
             .insert([
@@ -290,19 +291,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             ])
             .select()
             .single();
-          if (ordErr) throw ordErr;
+
+          if (ordErr) throw new Error(`Order Error: ${ordErr.message}`);
 
           const orderItems = itemsPurchased.map((item) => ({
             order_id: orderData.id,
             product_id: item.product.id,
-            product_name: item.product.title,
+            product_title: item.product.title,
             size: item.size,
             quantity: item.quantity,
             price_at_time: item.product.price,
           }));
 
           const { error: itemErr } = await supabase.from("order_items").insert(orderItems);
-          if (itemErr) throw itemErr;
+          if (itemErr) throw new Error(`Items Error: ${itemErr.message}`);
 
           setIsProcessing(false);
           setCart([]);
@@ -310,17 +312,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           alert(`Order Placed Successfully! Your Order ID is: ${orderData.id.slice(0, 8)}`);
         } catch (e: unknown) {
           setIsProcessing(false);
-          console.error("Database Write Error:", e);
+          const exactError = e instanceof Error ? e.message : JSON.stringify(e);
+          console.error("Database Write Error:", exactError);
           alert(
-            `Payment Received but Order Creation failed. Please contact support with Payment ID: ${response.razorpay_payment_id}`,
+            `PAYMENT SUCCESSFUL, BUT DATABASE FAILED.\n\nError: ${exactError}\n\nPayment ID: ${response.razorpay_payment_id}\n\nPlease screenshot this!`,
           );
         }
       },
     };
 
+    // FIXED: Safely calling the global window instance without 'any' type casting
     const rzp = new window.Razorpay(options);
 
-    // FIXED: Properly typed failure interface cuts out generic type bindings completely
     rzp.on("payment.failed", function (response: RazorpayErrorResponse) {
       setIsProcessing(false);
       const errorMsg = response.error.description || "The payment could not be completed.";
@@ -339,6 +342,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setIsCartOpen,
         cartItemCount,
         setIsCheckoutOpen,
+        isCheckoutOpen,
         cartTotal,
         clearCart,
       }}
@@ -575,6 +579,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCart = () => {
   const context = useContext(CartContext);
   if (!context) throw new Error("useCart must be used within a CartProvider");

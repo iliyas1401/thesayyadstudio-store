@@ -48,14 +48,8 @@ interface RazorpayInstance {
   open: () => void;
 }
 
-declare global {
-  interface Window {
-    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
-  }
-}
-
 export function CheckoutModal() {
-  const { cartItems, cartTotal, isCheckoutOpen, setIsCheckoutOpen, clearCart } = useCart();
+  const { cart, cartTotal, isCheckoutOpen, setIsCheckoutOpen, clearCart } = useCart();
   const [isProcessing, setIsProcessing] = useState(false);
   const [shippingDetails, setShippingDetails] = useState({
     name: "",
@@ -113,12 +107,12 @@ export function CheckoutModal() {
             total_amount: cartTotal,
             status: "Paid",
             shipping_address: `${shippingDetails.name}, ${shippingDetails.address}, Phone: ${shippingDetails.phone}`,
-            order_items: (cartItems as CartItem[]).map((item: CartItem) => ({
-              product_id: String(item.id),
-              title: item.title || item.name || "Premium Garment",
+            order_items: cart.map((item) => ({
+              product_id: String(item.product.id),
+              title: item.product.title || "Premium Garment",
               size: item.size || "Standard",
               quantity: item.quantity || 1,
-              price: item.price,
+              price: item.product.price,
             })),
           },
         ])

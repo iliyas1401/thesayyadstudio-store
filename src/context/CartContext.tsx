@@ -1,5 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { X, Plus, Minus, MapPin, Loader2, AlertCircle } from "lucide-react";
+import {
+  X,
+  Plus,
+  Minus,
+  MapPin,
+  Loader2,
+  AlertCircle,
+  CheckCircle,
+  ShoppingBag,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface Product {
@@ -95,6 +104,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [orderSuccessId, setOrderSuccessId] = useState<string | null>(null);
 
   // Shipping State
   const [shippingInfo, setShippingInfo] = useState({
@@ -149,6 +159,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       loadSavedAddresses();
       setPaymentError(null);
+      setOrderSuccessId(null);
     }
   }, [isCheckoutOpen]);
 
@@ -294,11 +305,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
           if (ordErr) throw new Error(`Order Error: ${ordErr.message}`);
 
-          // FIXED: Reverted to product_name to perfectly match your Supabase schema
           const orderItems = itemsPurchased.map((item) => ({
             order_id: orderData.id,
             product_id: item.product.id,
-            product_name: item.product.title, 
+            product_name: item.product.title,
             size: item.size,
             quantity: item.quantity,
             price_at_time: item.product.price,
@@ -307,10 +317,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           const { error: itemErr } = await supabase.from("order_items").insert(orderItems);
           if (itemErr) throw new Error(`Items Error: ${itemErr.message}`);
 
+          // FIXED: Enabled visual diagnostic capture on notification engine invoke
+          try {
+            const { error: funcErr } = await supabase.functions.invoke("send-order-notifications", {
+              body: {
+                orderId: orderData.id,
+                email: session?.user?.email || "client@thesayyadstudio.co.in",
+                phone: shippingInfo.phone,
+                amount: amount,
+              },
+            });
+
+            if (funcErr) {
+              alert(`Notification Route Error: ${funcErr.message}`);
+            }
+          } catch (notiErr: unknown) {
+            const msg = notiErr instanceof Error ? notiErr.message : JSON.stringify(notiErr);
+            alert(`Notification Interface Crash: ${msg}`);
+          }
+
           setIsProcessing(false);
           setCart([]);
-          setIsCheckoutOpen(false);
-          alert(`Order Placed Successfully! Your Order ID is: ${orderData.id.slice(0, 8)}`);
+          setOrderSuccessId(orderData.id as string);
         } catch (e: unknown) {
           setIsProcessing(false);
           const exactError = e instanceof Error ? e.message : JSON.stringify(e);
@@ -349,143 +377,182 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     >
       {children}
 
-      {/* CHECKOUT MODAL */}
+      {/* CHECKOUT MODAL WITH EMBEDDED SUCCESS LAYOUT */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden">
-            {/* PROCESSING OVERLAY */}
-            {isProcessing && (
-              <div className="absolute inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-                <Loader2 className="w-10 h-10 animate-spin text-black mb-4" />
-                <h3 className="text-xl font-bold font-display">Confirming Payment...</h3>
-                <p className="text-sm text-gray-500 mt-2 text-center px-6">
-                  Please do not close this window while we secure your order.
-                </p>
-              </div>
-            )}
-
-            <h2 className="text-2xl font-display mb-6 flex items-center gap-2">
-              <MapPin className="w-6 h-6" /> Shipping Details
-            </h2>
-
-            {paymentError && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-bold text-red-800 uppercase">Payment Failed</h4>
-                  <p className="text-sm text-red-600 mt-1">{paymentError}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {savedAddresses.length > 0 && (
-                <div className="mb-4">
-                  <label className="text-xs font-bold uppercase text-muted-foreground block mb-2">
-                    Select Address
-                  </label>
-                  <select
-                    value={selectedAddrId}
-                    onChange={handleAddressSelect}
-                    disabled={isProcessing}
-                    className="w-full p-3 border rounded bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-black disabled:opacity-50"
-                  >
-                    {savedAddresses.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.label || "Saved"} - {a.address}, {a.city}
-                      </option>
-                    ))}
-                    <option value="new">+ Enter New Address</option>
-                  </select>
-                </div>
-              )}
-
-              {selectedAddrId !== "new" ? (
-                <div className="p-4 border rounded bg-gray-50 text-sm space-y-1">
-                  <p className="font-bold">{shippingInfo.address}</p>
-                  <p>
-                    {shippingInfo.city} - {shippingInfo.pincode}
-                  </p>
-                  <p className="font-semibold mt-2">Ph: {shippingInfo.phone}</p>
-                </div>
-              ) : (
-                <>
-                  <input
-                    disabled={isProcessing}
-                    type="text"
-                    placeholder="Full Address"
-                    value={shippingInfo.address}
-                    className="w-full p-3 border rounded disabled:opacity-50"
-                    onChange={(e) => {
-                      setShippingInfo({ ...shippingInfo, address: e.target.value });
-                      setPaymentError(null);
-                    }}
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    <input
-                      disabled={isProcessing}
-                      type="text"
-                      placeholder="City"
-                      value={shippingInfo.city}
-                      className="p-3 border rounded disabled:opacity-50"
-                      onChange={(e) => {
-                        setShippingInfo({ ...shippingInfo, city: e.target.value });
-                        setPaymentError(null);
-                      }}
-                    />
-                    <input
-                      disabled={isProcessing}
-                      type="text"
-                      placeholder="Pincode"
-                      value={shippingInfo.pincode}
-                      className="p-3 border rounded disabled:opacity-50"
-                      onChange={(e) => {
-                        setShippingInfo({ ...shippingInfo, pincode: e.target.value });
-                        setPaymentError(null);
-                      }}
-                    />
+          <div className="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden transition-all duration-300">
+            {orderSuccessId ? (
+              <div className="text-center py-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex justify-center">
+                  <div className="w-16 h-16 bg-[#0f2e20]/10 rounded-full flex items-center justify-center text-[#0f2e20]">
+                    <CheckCircle className="w-10 h-10" />
                   </div>
-                  <input
-                    disabled={isProcessing}
-                    type="tel"
-                    placeholder="Phone Number"
-                    value={shippingInfo.phone}
-                    className="w-full p-3 border rounded disabled:opacity-50"
-                    onChange={(e) => {
-                      setShippingInfo({ ...shippingInfo, phone: e.target.value });
-                      setPaymentError(null);
-                    }}
-                  />
-                </>
-              )}
-            </div>
-
-            <div className="mt-8 flex gap-3">
-              <button
-                disabled={isProcessing}
-                onClick={() => setIsCheckoutOpen(false)}
-                className="flex-1 py-3 border rounded font-bold cursor-pointer hover:bg-gray-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={isProcessing}
-                onClick={() => {
-                  if (shippingInfo.address && shippingInfo.phone)
-                    processPayment(cartTotal, "Studio Order", cart);
-                  else alert("Please fill all shipping details.");
-                }}
-                className="flex-1 py-3 bg-black text-white rounded font-bold cursor-pointer hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center"
-              >
-                {isProcessing ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : paymentError ? (
-                  "Retry Payment"
-                ) : (
-                  `Pay ₹${cartTotal}`
+                </div>
+                <div>
+                  <h2 className="text-3xl font-display font-bold text-foreground">
+                    Order Confirmed!
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Thank you for placing your order with The Sayyad Studio.
+                  </p>
+                </div>
+                <div className="bg-gray-50 border p-4 rounded-xl text-left text-sm space-y-2">
+                  <div className="flex justify-between border-b pb-2">
+                    <span className="text-muted-foreground">Order Reference</span>
+                    <span className="font-mono font-bold uppercase text-foreground">
+                      #{orderSuccessId.slice(0, 8)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-1">
+                    <span className="text-muted-foreground">Dispatch Tracking</span>
+                    <span className="text-[#0f2e20] font-semibold text-xs">
+                      Sent via WhatsApp & Email
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsCheckoutOpen(false)}
+                  className="w-full bg-[#0f2e20] text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-black transition-colors"
+                >
+                  <ShoppingBag className="w-4 h-4" /> Continue Shopping
+                </button>
+              </div>
+            ) : (
+              <>
+                {isProcessing && (
+                  <div className="absolute inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+                    <Loader2 className="w-10 h-10 animate-spin text-black mb-4" />
+                    <h3 className="text-xl font-bold font-display">Confirming Payment...</h3>
+                    <p className="text-sm text-gray-500 mt-2 text-center px-6">
+                      Please do not close this window while we secure your order.
+                    </p>
+                  </div>
                 )}
-              </button>
-            </div>
+
+                <h2 className="text-2xl font-display mb-6 flex items-center gap-2">
+                  <MapPin className="w-6 h-6" /> Shipping Details
+                </h2>
+
+                {paymentError && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-bold text-red-800 uppercase">Payment Failed</h4>
+                      <p className="text-sm text-red-600 mt-1">{paymentError}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  {savedAddresses.length > 0 && (
+                    <div className="mb-4">
+                      <label className="text-xs font-bold uppercase text-muted-foreground block mb-2">
+                        Select Address
+                      </label>
+                      <select
+                        value={selectedAddrId}
+                        onChange={handleAddressSelect}
+                        disabled={isProcessing}
+                        className="w-full p-3 border rounded bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-black disabled:opacity-50"
+                      >
+                        {savedAddresses.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.label || "Saved"} - {a.address}, {a.city}
+                          </option>
+                        ))}
+                        <option value="new">+ Enter New Address</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {selectedAddrId !== "new" ? (
+                    <div className="p-4 border rounded bg-gray-50 text-sm space-y-1">
+                      <p className="font-bold">{shippingInfo.address}</p>
+                      <p>
+                        {shippingInfo.city} - {shippingInfo.pincode}
+                      </p>
+                      <p className="font-semibold mt-2">Ph: {shippingInfo.phone}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        disabled={isProcessing}
+                        type="text"
+                        placeholder="Full Address"
+                        value={shippingInfo.address}
+                        className="w-full p-3 border rounded disabled:opacity-50"
+                        onChange={(e) => {
+                          setShippingInfo({ ...shippingInfo, address: e.target.value });
+                          setPaymentError(null);
+                        }}
+                      />
+                      <div className="grid grid-cols-2 gap-4">
+                        <input
+                          disabled={isProcessing}
+                          type="text"
+                          placeholder="City"
+                          value={shippingInfo.city}
+                          className="p-3 border rounded disabled:opacity-50"
+                          onChange={(e) => {
+                            setShippingInfo({ ...shippingInfo, city: e.target.value });
+                            setPaymentError(null);
+                          }}
+                        />
+                        <input
+                          disabled={isProcessing}
+                          type="text"
+                          placeholder="Pincode"
+                          value={shippingInfo.pincode}
+                          className="p-3 border rounded disabled:opacity-50"
+                          onChange={(e) => {
+                            setShippingInfo({ ...shippingInfo, pincode: e.target.value });
+                            setPaymentError(null);
+                          }}
+                        />
+                      </div>
+                      <input
+                        disabled={isProcessing}
+                        type="tel"
+                        placeholder="Phone Number"
+                        value={shippingInfo.phone}
+                        className="w-full p-3 border rounded disabled:opacity-50"
+                        onChange={(e) => {
+                          setShippingInfo({ ...shippingInfo, phone: e.target.value });
+                          setPaymentError(null);
+                        }}
+                      />
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-8 flex gap-3">
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => setIsCheckoutOpen(false)}
+                    className="flex-1 py-3 border rounded font-bold cursor-pointer hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => {
+                      if (shippingInfo.address && shippingInfo.phone)
+                        processPayment(cartTotal, "Studio Order", cart);
+                      else alert("Please fill all shipping details.");
+                    }}
+                    className="flex-1 py-3 bg-black text-white rounded font-bold cursor-pointer hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center"
+                  >
+                    {isProcessing ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : paymentError ? (
+                      "Retry Payment"
+                    ) : (
+                      `Pay ₹${cartTotal}`
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

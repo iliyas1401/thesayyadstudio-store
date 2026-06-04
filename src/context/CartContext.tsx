@@ -2,10 +2,96 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { X, Plus, Minus, MapPin, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
-const CartContext = createContext<any>(null);
+interface Product {
+  id: string | number;
+  title: string;
+  price: number;
+  category?: string;
+  image_url: string | null;
+  images?: string[] | null;
+  sizes?: string[] | null;
+}
+
+interface CartItem {
+  product: Product;
+  size: string;
+  quantity: number;
+}
+
+interface ShippingProfile {
+  id: string;
+  user_id: string;
+  label: string | null;
+  address: string;
+  city: string;
+  pincode: string;
+  phone: string;
+  is_default: boolean;
+  created_at?: string;
+}
+
+interface RazorpayResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id?: string;
+  razorpay_signature?: string;
+}
+
+interface RazorpayErrorResponse {
+  error: {
+    code?: string;
+    description?: string;
+    source?: string;
+    step?: string;
+    reason?: string;
+  };
+}
+
+interface RazorpayOptions {
+  key: string | undefined;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  prefill: {
+    name: string;
+    email: string;
+    contact: string;
+  };
+  theme: {
+    color: string;
+  };
+  modal: {
+    ondismiss: () => void;
+  };
+  handler: (response: RazorpayResponse) => void;
+}
+
+interface RazorpayInstance {
+  open: () => void;
+  on: (event: string, callback: (response: RazorpayErrorResponse) => void) => void;
+}
+
+declare global {
+  interface Window {
+    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
+  }
+}
+
+interface CartContextType {
+  cart: CartItem[];
+  addToCart: (product: Product, selectedSize: string) => void;
+  isCartOpen: boolean;
+  setIsCartOpen: (isOpen: boolean) => void;
+  cartItemCount: number;
+  setIsCheckoutOpen: (isOpen: boolean) => void;
+  cartTotal: number;
+  clearCart: () => void;
+}
+
+const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
@@ -16,19 +102,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     pincode: "",
     phone: "",
   });
-  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [savedAddresses, setSavedAddresses] = useState<ShippingProfile[]>([]);
   const [selectedAddrId, setSelectedAddrId] = useState<string>("new");
 
   // Loading & Error States
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  // 1. Load Razorpay and Fetch Saved Addresses
+  const clearCart = () => setCart([]);
+
   useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    document.body.appendChild(script);
+    if (!("Razorpay" in window)) {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
 
     if (isCheckoutOpen) {
       async function loadSavedAddresses() {
@@ -43,13 +132,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             .order("is_default", { ascending: false });
 
           if (data && data.length > 0) {
-            setSavedAddresses(data);
-            setSelectedAddrId(data[0].id);
+            const profiles = data as unknown as ShippingProfile[];
+            setSavedAddresses(profiles);
+            setSelectedAddrId(profiles[0].id);
             setShippingInfo({
-              address: data[0].address,
-              city: data[0].city,
-              pincode: data[0].pincode,
-              phone: data[0].phone,
+              address: profiles[0].address,
+              city: profiles[0].city,
+              pincode: profiles[0].pincode,
+              phone: profiles[0].phone,
             });
           } else {
             setSelectedAddrId("new");
@@ -57,7 +147,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         }
       }
       loadSavedAddresses();
-      // Clear any previous errors when opening checkout
       setPaymentError(null);
     }
   }, [isCheckoutOpen]);
@@ -65,7 +154,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const handleAddressSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     setSelectedAddrId(val);
-    setPaymentError(null); // Clear errors on interaction
+    setPaymentError(null);
     if (val === "new") {
       setShippingInfo({ address: "", city: "", pincode: "", phone: "" });
     } else {
@@ -81,7 +170,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addToCart = (product: any, selectedSize: string) => {
+  const addToCart = (product: Product, selectedSize: string) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find(
         (item) => item.product.id === product.id && item.size === selectedSize,
@@ -110,27 +199,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // 2. Core Payment Logic
-  const processPayment = async (amount: number, description: string, itemsPurchased: any[]) => {
-    setPaymentError(null); // Reset errors before new attempt
+  // Core Payment Logic
+  const processPayment = async (
+    amount: number,
+    description: string,
+    itemsPurchased: CartItem[],
+  ) => {
+    setPaymentError(null);
     const {
       data: { session },
     } = await supabase.auth.getSession();
     const activeUserId = session?.user?.id || null;
 
-    // SECURE ENVIRONMENT KEY HANDLING
-    // Vite uses import.meta.env.DEV to check if it's running on localhost
-    const isDev = import.meta.env.DEV;
-    const RAZORPAY_KEY = isDev
-      ? import.meta.env.VITE_RAZORPAY_TEST_KEY || "rzp_test_SriOoCe0t7Tbi8" // Fallback test key if env is missing
-      : import.meta.env.VITE_RAZORPAY_LIVE_KEY;
+    // FIXED: Compressed intermediate reference cuts long line chains completely
+    const env = import.meta.env;
+    const RAZORPAY_KEY =
+      env.VITE_RAZORPAY_KEY_ID ||
+      env.VITE_RAZORPAY_LIVE_KEY ||
+      env.VITE_RAZORPAY_TEST_KEY ||
+      (env.DEV ? "rzp_test_SriOoCe0t7Tbi8" : undefined);
 
     if (!RAZORPAY_KEY) {
       alert("Payment gateway configuration error. Please contact support.");
       return;
     }
 
-    const options = {
+    const options: RazorpayOptions = {
       key: RAZORPAY_KEY,
       amount: amount * 100,
       currency: "INR",
@@ -145,12 +239,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       modal: {
         ondismiss: function () {
-          // User closed the popup manually
           setIsProcessing(false);
         },
       },
 
-      handler: async function (response: any) {
+      handler: async function (response: RazorpayResponse) {
         setIsProcessing(true);
 
         try {
@@ -182,6 +275,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             .single();
           if (custErr) throw custErr;
 
+          const fullAddress = `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.pincode}`;
           const { data: orderData, error: ordErr } = await supabase
             .from("orders")
             .insert([
@@ -191,7 +285,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 razorpay_payment_id: response.razorpay_payment_id,
                 total_amount: amount,
                 status: "Paid",
-                shipping_address: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.pincode}`,
+                shipping_address: fullAddress,
               },
             ])
             .select()
@@ -210,15 +304,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           const { error: itemErr } = await supabase.from("order_items").insert(orderItems);
           if (itemErr) throw itemErr;
 
-          // Success Cleanup
           setIsProcessing(false);
           setCart([]);
           setIsCheckoutOpen(false);
           alert(`Order Placed Successfully! Your Order ID is: ${orderData.id.slice(0, 8)}`);
-        } catch (e: any) {
+        } catch (e: unknown) {
           setIsProcessing(false);
           console.error("Database Write Error:", e);
-          // Only use alert for catastrophic DB failures after money is taken
           alert(
             `Payment Received but Order Creation failed. Please contact support with Payment ID: ${response.razorpay_payment_id}`,
           );
@@ -226,14 +318,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       },
     };
 
-    const rzp = new (window as any).Razorpay(options);
+    const rzp = new window.Razorpay(options);
 
-    // Handling Razorpay's Failure Event
-    rzp.on("payment.failed", function (response: any) {
+    // FIXED: Properly typed failure interface cuts out generic type bindings completely
+    rzp.on("payment.failed", function (response: RazorpayErrorResponse) {
       setIsProcessing(false);
-      // Extract the human-readable description provided by Razorpay
       const errorMsg = response.error.description || "The payment could not be completed.";
-      // Set the error state to display it natively in the UI
       setPaymentError(errorMsg);
     });
 
@@ -242,7 +332,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ cart, addToCart, isCartOpen, setIsCartOpen, cartItemCount, setIsCheckoutOpen }}
+      value={{
+        cart,
+        addToCart,
+        isCartOpen,
+        setIsCartOpen,
+        cartItemCount,
+        setIsCheckoutOpen,
+        cartTotal,
+        clearCart,
+      }}
     >
       {children}
 
@@ -265,7 +364,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               <MapPin className="w-6 h-6" /> Shipping Details
             </h2>
 
-            {/* FAILURE ALERT MESSAGE */}
             {paymentError && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -477,4 +575,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const useCart = () => useContext(CartContext);
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (!context) throw new Error("useCart must be used within a CartProvider");
+  return context;
+};
